@@ -23,7 +23,7 @@ class Kubernetes::Installer
   getter ssh : Util::SSH
 
   getter first_master : Hetzner::Server { masters[0] }
-  getter api_server_ip_address : String { masters.size > 1 ? load_balancer.not_nil!.public_ip_address.not_nil! : first_master.public_ip_address.not_nil! }
+  getter api_server_ip_address : String { masters.size > 1 ? load_balancer.not_nil!.public_ip_address.not_nil! : first_master.host_ip_address.not_nil! }
   getter tls_sans : String { generate_tls_sans }
 
   def initialize(@configuration, @masters, @workers, @load_balancer, @ssh, @autoscaling_worker_node_pools)
@@ -133,7 +133,10 @@ class Kubernetes::Installer
       extra_args: extra_args,
       server: server,
       tls_sans: tls_sans,
-      private_network_test_ip: settings.private_network_subnet.split(".")[0..2].join(".") + ".1"
+      private_network_test_ip: settings.private_network_subnet.split(".")[0..2].join(".") + ".1",
+      cluster_cidr: settings.cluster_cidr,
+      service_cidr: settings.service_cidr,
+      cluster_dns: settings.cluster_dns,
     })
   end
 
@@ -201,7 +204,7 @@ class Kubernetes::Installer
     puts "Saving the kubeconfig file to #{kubeconfig_path}..."
 
     kubeconfig = ssh.run(first_master, settings.ssh_port, "cat /etc/rancher/k3s/k3s.yaml", settings.use_ssh_agent, print_output: false).
-      gsub("127.0.0.1", api_server_ip_address).
+      gsub("127.0.0.1",  settings.api_server_hostname ? settings.api_server_hostname : api_server_ip_address).
       gsub("default", settings.cluster_name)
 
     File.write(kubeconfig_path, kubeconfig)
@@ -237,7 +240,22 @@ class Kubernetes::Installer
   private def deploy_cloud_controller_manager
     puts "\nDeploying Hetzner Cloud Controller Manager..."
 
-    command = "kubectl apply -f #{settings.cloud_controller_manager_manifest_url}"
+    response = Crest.get(settings.cloud_controller_manager_manifest_url)
+
+    unless response.success?
+      puts "Failed to download CCM manifest from #{settings.cloud_controller_manager_manifest_url}"
+      puts "Server responded with status #{response.status_code}"
+      exit 1
+    end
+
+    ccm_manifest = response.body.to_s
+    ccm_manifest = ccm_manifest.gsub(/--cluster-cidr=[^"]+/, "--cluster-cidr=#{settings.cluster_cidr}")
+
+    ccm_manifest_path = "/tmp/ccm_manifest.yaml"
+
+    File.write(ccm_manifest_path, ccm_manifest)
+
+    command = "kubectl apply -f #{ccm_manifest_path}"
 
     result = Util::Shell.run(command, configuration.kubeconfig_path, settings.hetzner_token)
 
@@ -360,6 +378,9 @@ class Kubernetes::Installer
 
   private def generate_tls_sans
     sans = ["--tls-san=#{api_server_ip_address}"]
+    sans << "--tls-san=#{settings.api_server_hostname}" if settings.api_server_hostname
+    sans << "--tls-san=#{load_balancer.not_nil!.private_ip_address}" if masters.size > 1
+
     masters.each do |master|
       master_private_ip = master.private_ip_address
       sans << "--tls-san=#{master_private_ip}"

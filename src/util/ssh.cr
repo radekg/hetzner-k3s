@@ -13,7 +13,7 @@ class Util::SSH
 
   def run(server, port, command, use_ssh_agent, print_output = true)
     Retriable.retry(max_attempts: 300, backoff: false, base_interval: 1.second, on: {SSH2::SSH2Error, SSH2::SessionError, Socket::ConnectError}) do
-      result = run_command(server, port, command, use_ssh_agent, print_output)
+      run_command(server, port, command, use_ssh_agent, print_output)
     end
   end
 
@@ -38,7 +38,7 @@ class Util::SSH
   end
 
   private def run_command(server, port, command, use_ssh_agent, print_output = true)
-    host_ip_address = server.public_ip_address.not_nil!
+    host_ip_address = server.host_ip_address.not_nil!
 
     result = IO::Memory.new
     all_output = if print_output
@@ -49,7 +49,7 @@ class Util::SSH
 
     SSH2::Session.open(host_ip_address, port) do |session|
       session.timeout = 5000
-      session.knownhosts.delete_if { |h| h.name == server.public_ip_address }
+      session.knownhosts.delete_if { |h| h.name == server.host_ip_address }
 
       if use_ssh_agent
         session.login_with_agent("root")

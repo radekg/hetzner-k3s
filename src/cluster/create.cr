@@ -86,6 +86,8 @@ class Cluster::Create
     instance_type = settings.masters_pool.instance_type
     master_name = "#{settings.cluster_name}-#{instance_type}-master#{index + 1}"
     image = settings.masters_pool.image || settings.image
+    additional_packages = settings.masters_pool.additional_packages || settings.additional_packages
+    additional_post_create_commands = settings.masters_pool.post_create_commands || settings.post_create_commands
 
     Hetzner::Server::Create.new(
       hetzner_client: hetzner_client,
@@ -100,8 +102,10 @@ class Cluster::Create
       firewall: firewall,
       network: network,
       ssh_port: settings.ssh_port,
-      additional_packages: settings.additional_packages,
-      additional_post_create_commands: settings.post_create_commands
+      enable_public_net_ipv4: settings.enable_public_net_ipv4,
+      enable_public_net_ipv6: settings.enable_public_net_ipv6,
+      additional_packages: additional_packages,
+      additional_post_create_commands: additional_post_create_commands
     )
   end
 
@@ -135,6 +139,8 @@ class Cluster::Create
     instance_type = node_pool.instance_type
     node_name = "#{settings.cluster_name}-#{instance_type}-pool-#{node_pool.name}-worker#{index + 1}"
     image = node_pool.image || settings.image
+    additional_packages = node_pool.additional_packages || settings.additional_packages
+    additional_post_create_commands = node_pool.post_create_commands || settings.post_create_commands
 
     Hetzner::Server::Create.new(
       hetzner_client: hetzner_client,
@@ -149,8 +155,10 @@ class Cluster::Create
       firewall: firewall,
       network: network,
       ssh_port: settings.ssh_port,
-      additional_packages: settings.additional_packages,
-      additional_post_create_commands: settings.post_create_commands
+      enable_public_net_ipv4: settings.enable_public_net_ipv4,
+      enable_public_net_ipv6: settings.enable_public_net_ipv6,
+      additional_packages: additional_packages,
+      additional_post_create_commands: additional_post_create_commands
     )
   end
 
@@ -169,32 +177,36 @@ class Cluster::Create
 
     channel = Channel(Hetzner::Server).new
 
-    create_instances(channel)
-    wait_for_instances_to_be_up(channel)
+    server_creators.each_slice(10) do |slice|
+      create_instances(channel, slice)
+      wait_for_instances_to_be_up(channel, slice)
+    end
   end
 
-  private def create_instances(channel : Channel(Hetzner::Server))
-    server_creators.each do |server_creator|
+  private def create_instances(channel : Channel(Hetzner::Server), slice : Array(Hetzner::Server::Create))
+    slice.each do |server_creator|
       spawn do
         server = server_creator.run
         channel.send(server)
       end
     end
 
-    server_creators.size.times do
+    slice.size.times do
       servers << channel.receive
     end
   end
 
-  private def wait_for_instances_to_be_up(channel : Channel(Hetzner::Server))
-    servers.each do |server|
+  private def wait_for_instances_to_be_up(channel : Channel(Hetzner::Server), slice : Array(Hetzner::Server::Create))
+    slice.each do |server_creator|
+      server = server_creator.run
+
       spawn do
         ssh.wait_for_server server, settings.ssh_port, settings.use_ssh_agent, "echo ready", "ready"
         channel.send(server)
       end
     end
 
-    server_creators.size.times do
+    slice.size.times do
       channel.receive
     end
   end

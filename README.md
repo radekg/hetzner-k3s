@@ -37,6 +37,10 @@ Also see this [wiki page](https://github.com/vitobotta/hetzner-k3s/blob/main/wik
 
 
 
+If you like this project and would like to help its development, consider [becoming a sponsor](https://github.com/sponsors/vitobotta).
+
+
+
 ___
 ## Who am I?
 
@@ -85,25 +89,35 @@ You need to install these dependencies first:
 ##### Intel
 
 ```bash
-wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.3/hetzner-k3s-mac-amd64
-chmod +x hetzner-k3s-mac-amd64
-sudo mv hetzner-k3s-mac-amd64 /usr/local/bin/hetzner-k3s
+wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.5/hetzner-k3s-macos-amd64
+chmod +x hetzner-k3s-macos-amd64
+sudo mv hetzner-k3s-macos-amd64 /usr/local/bin/hetzner-k3s
 ```
 
 ##### Apple Silicon / M1
 
 ```bash
-wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.3/hetzner-k3s-mac-arm64
-chmod +x hetzner-k3s-mac-arm64
-sudo mv hetzner-k3s-mac-arm64 /usr/local/bin/hetzner-k3s
+wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.5/hetzner-k3s-macos-arm64
+chmod +x hetzner-k3s-macos-arm64
+sudo mv hetzner-k3s-macos-arm64 /usr/local/bin/hetzner-k3s
 ```
 
 ### Linux
 
+#### amd64
+
 ```bash
-wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.3/hetzner-k3s-linux-x86_64
-chmod +x hetzner-k3s-linux-x86_64
-sudo mv hetzner-k3s-linux-x86_64 /usr/local/bin/hetzner-k3s
+wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.5/hetzner-k3s-linux-amd64
+chmod +x hetzner-k3s-linux-amd64
+sudo mv hetzner-k3s-linux-amd64 /usr/local/bin/hetzner-k3s
+```
+
+#### arm
+
+```bash
+wget https://github.com/vitobotta/hetzner-k3s/releases/download/v1.1.5/hetzner-k3s-linux-arm64
+chmod +x hetzner-k3s-linux-arm64
+sudo mv hetzner-k3s-linux-arm64 /usr/local/bin/hetzner-k3s
 ```
 
 ### Windows
@@ -126,20 +140,25 @@ kubeconfig_path: "./kubeconfig"
 k3s_version: v1.26.4+k3s1
 public_ssh_key_path: "~/.ssh/id_rsa.pub"
 private_ssh_key_path: "~/.ssh/id_rsa"
-use_ssh_agent: false
+use_ssh_agent: false # set to true if your key has a passphrase or if SSH connections don't work or seem to hang without agent. See https://github.com/vitobotta/hetzner-k3s#limitations
 # ssh_port: 22
 ssh_allowed_networks:
-  - 0.0.0.0/0
+  - 0.0.0.0/0 # ensure your current IP is included in the range
 api_allowed_networks:
-  - 0.0.0.0/0
-private_network_subnet: 10.0.0.0/16
+  - 0.0.0.0/0 # ensure your current IP is included in the range
+private_network_subnet: 10.0.0.0/16 # ensure this doesn't overlap with other networks in the same project
 disable_flannel: false # set to true if you want to install a different CNI
 schedule_workloads_on_masters: false
+# cluster_cidr: 10.244.0.0/16 # optional: a custom IPv4/IPv6 network CIDR to use for pod IPs
+# service_cidr: 10.43.0.0/16 # optional: a custom IPv4/IPv6 network CIDR to use for service IPs
+# cluster_dns: 10.43.0.10 # optional: IPv4 Cluster IP for coredns service. Needs to be an address from the service_cidr range
+# enable_public_net_ipv4: false # default is true
+# enable_public_net_ipv6: false # default is true
 # image: rocky-9 # optional: default is ubuntu-22.04
 # autoscaling_image: 103908130 # optional, defaults to the `image` setting
-# snapshot_os: microos # otional: specified the os type when using a custom snapshot
-cloud_controller_manager_manifest_url: "https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/download/v1.16.0/ccm-networks.yaml"
-csi_driver_manifest_url: "https://raw.githubusercontent.com/hetznercloud/csi-driver/v2.3.2/deploy/kubernetes/hcloud-csi.yml"
+# snapshot_os: microos # optional: specified the os type when using a custom snapshot
+cloud_controller_manager_manifest_url: "https://github.com/hetznercloud/hcloud-cloud-controller-manager/releases/download/v1.18.0/ccm-networks.yaml"
+csi_driver_manifest_url: "https://raw.githubusercontent.com/hetznercloud/csi-driver/v2.5.1/deploy/kubernetes/hcloud-csi.yml"
 system_upgrade_controller_manifest_url: "https://raw.githubusercontent.com/rancher/system-upgrade-controller/master/manifests/system-upgrade-controller.yaml"
 masters_pool:
   instance_type: cpx21
@@ -191,15 +210,18 @@ worker_node_pools:
 # kube_proxy_args:
 # - arg1
 # - ...
+# api_server_hostname: k8s.example.com # optional: DNS for the k8s API LoadBalancer. After the script has run, create a DNS record with the address of the API LoadBalancer.
 ```
 
 Most settings should be self explanatory; you can run `hetzner-k3s releases` to see a list of the available k3s releases.
 
-If you don't want to specify the Hetzner token in the config file (for example if you want to use the tool with CI or want to safely commit the config file to a repository), then you can use the `HCLOUD_TOKEN` environment variable instead, which has predecence.
+If you don't want to specify the Hetzner token in the config file (for example if you want to use the tool with CI or want to safely commit the config file to a repository), then you can use the `HCLOUD_TOKEN` environment variable instead, which has precedence.
 
 If you set `masters_pool.instance_count` to 1 then the tool will create a non highly available control plane; for production clusters you may want to set it to a number greater than 1. This number must be odd to avoid split brain issues with etcd and the recommended number is 3.
 
 You can specify any number of worker node pools, static or autoscaled, and have mixed nodes with different specs for different workloads.
+
+Hetzner cloud init settings (`additional_packages` & `post_create_commands`) can be defined in the configuration file at root level as well as for each pool if different settings are needed for different pools. If these settings are configured for a pool, these override the settings at root level.
 
 At the moment Hetzner Cloud has five locations: two in Germany (`nbg1`, Nuremberg and `fsn1`, Falkenstein), one in Finland (`hel1`, Helsinki) and two in the USA (`ash`, Ashburn, Virginia, and `hil`, Hillsboro, Oregon). Please keep in mind that US locations only offer instances with AMD CPUs at the moment, while the newly introduced ARM instances are only available in Falkenstein-fsn1 for now.
 
@@ -219,7 +241,10 @@ hetzner-k3s create --config cluster_config.yaml
 
 This will take a few minutes depending on the number of masters and worker nodes.
 
+### Disabling public IPs (IPv4 or IPv6 or both) on nodes
 
+With `enable_public_net_ipv4: false` and `enable_public_net_ipv6: false` you can disable the public interface for all nodes for improved security and saving on ipv4 addresses costs. These settings are global and effects all master and worker nodes. If you disable public IPs be sure to run hetzer-k3s from a machine that has access to the same private network as the nodes either directly or via some VPN.
+Additional networking setup is required via cloud init, so it's important that the machine from which you run hetzner-k3s have internet access and DNS configured correctly, otherwise the cluster creation process will get stuck after creating the nodes. See [this discussion](https://github.com/vitobotta/hetzner-k3s/discussions/252) for additional information and instructions.
 
 ### Using alternative OS images
 
@@ -241,7 +266,7 @@ I've tested snapshots for [openSUSE MicroOS](https://microos.opensuse.org/) but 
 
 ### Limitations:
 
-- if possible, please use modern SSH keys since some operating systems have deprecated old crypto based on SHA1; therefore I recommend you use ECDSA keys insted of the old RSA type
+- if possible, please use modern SSH keys since some operating systems have deprecated old crypto based on SHA1; therefore I recommend you use ECDSA keys instead of the old RSA type
 - if you use a snapshot instead of one of the default images, the creation of the servers will take longer than when using a regular image
 - the setting `api_allowed_networks` allows specifying which networks can access the Kubernetes API, but this only works with single master clusters currently. Multi-master HA clusters require a load balancer for the API, but load balancers are not yet covered by Hetzner's firewalls
 - if you enable autoscaling for one or more nodepools, do not change that setting afterwards as it can cause problems to the autoscaler
@@ -311,6 +336,7 @@ Note: (single master clusters only) the API server will briefly be unavailable d
 
 To check the upgrade progress, run `watch kubectl get nodes -owide`. You will see the masters being upgraded one per time, followed by the worker nodes.
 
+NOTE: if you haven't used the tool in a while before upgrading, you may need to delete the file `cluster_config.yaml.example` in your temp folder to refresh the list of available k3s versions.
 
 
 ### What to do if the upgrade doesn't go smoothly
@@ -341,6 +367,10 @@ A final note about upgrades is that if for some reason the upgrade gets stuck af
 ```bash
 kubectl label node <master1> <master2> <master2> plan.upgrade.cattle.io/k3s-server=upgraded
 ```
+
+
+
+
 
 
 ___
@@ -383,7 +413,9 @@ To delete a cluster, running
 hetzner-k3s delete --config cluster_config.yaml
 ```
 
-This will delete all the resources in the Hetzner Cloud project created by `hetzner-k3s` directly. At the moment instances created by the cluster autoscaler must be deleted manually. This will be addressed in a future update.
+This will delete all the resources in the Hetzner Cloud project created by `hetzner-k3s` directly.
+
+**NOTE:** at the moment instances created by the cluster autoscaler, as well as load balancers and persistent volumes created by deploying your applications must be deleted manually. This may be addressed in a future release.
 
 
 
@@ -394,24 +426,33 @@ ___
 
 Once the cluster is ready, you can already provision services of type LoadBalancer for your workloads (such as the Nginx ingress controller for example) thanks to the Hetzner Cloud Controller Manager that is installed automatically.
 
-There are some annotations that you can add to your services to configure the load balancers. I personally use the following:
+There are some annotations that you can add to your services to configure the load balancers. At a minimum your need these two:
 
 ```yaml
-  service:
-    annotations:
-      load-balancer.hetzner.cloud/hostname: <a valid fqdn>
-      load-balancer.hetzner.cloud/http-redirect-https: 'false'
-      load-balancer.hetzner.cloud/location: nbg1
-      load-balancer.hetzner.cloud/name: <lb name>
-      load-balancer.hetzner.cloud/uses-proxyprotocol: 'true'
-      load-balancer.hetzner.cloud/use-private-ip: "true"
+load-balancer.hetzner.cloud/location: nbg1 # must ensure the network location of the load balancer is same as for the nodes
+load-balancer.hetzner.cloud/use-private-ip: "true" # ensures the traffic between LB and nodes goes through the private network, so you don't need to change anything in the firewall
+```
+
+
+
+The above are required, but I also recommend these:
+
+```yaml
+load-balancer.hetzner.cloud/hostname: <a valid fqdn>
+load-balancer.hetzner.cloud/http-redirect-https: 'false'
+load-balancer.hetzner.cloud/name: <lb name>
+load-balancer.hetzner.cloud/uses-proxyprotocol: 'true'
 ```
 
 I set `load-balancer.hetzner.cloud/hostname` to a valid hostname that I configure (after creating the load balancer) with the IP of the load balancer; I use this together with the annotation `load-balancer.hetzner.cloud/uses-proxyprotocol: 'true'` to enable the proxy protocol. Reason: I enable the proxy protocol on the load balancers so that my ingress controller and applications can "see" the real IP address of the client. However when this is enabled, there is a problem where [cert-manager](https://cert-manager.io/docs/) fails http01 challenges; you can find an explanation of why [here](https://github.com/compumike/hairpin-proxy) but the easy fix provided by some providers - including Hetzner - is to configure the load balancer so that it uses a hostname instead of an IP. Again, read the explanation for the reason but if you care about seeing the actual IP of the client then I recommend you use these two annotations.
 
-The annotation `load-balancer.hetzner.cloud/use-private-ip: "true"` ensures that the communication between the load balancer and the nodes happens through the private network, so we don't have to open any ports in the filrewall for the nodes (other than the port 6443 for the Kubernetes API server).
-
 The other annotations should be self explanatory. You can find a list of the available annotations [here](https://pkg.go.dev/github.com/hetznercloud/hcloud-cloud-controller-manager/internal/annotation).
+
+
+
+**Note**: in a future release it will be possible to configure ingress controllers with host ports, so it will be possible to use an ingress without having to buy a load balancer, but for the time being a load balancer is still required.
+
+
 
 ### Persistent volumes
 
@@ -419,7 +460,25 @@ Once the cluster is ready you can create persistent volumes out of the box with 
 
 ### Keeping a project per cluster
 
-I recommend that you create a separate Hetzner project for each cluster, because otherwise multiple clusters will attempt to create overlapping routes. I will make the pod cidr configurable in the future to avoid this, but I still recommend keeping clusters separated from each other. This way, if you want to delete a cluster with all the resources created for it, you can just delete the project.
+If you want to create multiple clusters per project, see [Configuring Cluster-CIDR and Service-CIDR](#configuring-cluster-cidr-and-service-cidr). Make sure, that every cluster has its own dedicated Cluster- and Service-CIDR. If they overlap, it will cause problems. But I still recommend keeping clusters separated from each other. This way, if you want to delete a cluster with all the resources created for it, you can just delete the project.
+
+### Configuring Cluster-CIDR and Service-CIDR
+
+Cluster-CIDR and Service-CIDR describe the IP-Ranges that are used for pods and services respectively. Under normal circumstances you should not need to change these values. However, advanced scenarios may require you to change them to avoid networking conflicts.
+
+**Changing the Cluster-CIDR (Pod IP-Range):**
+
+To change the Cluster-CIDR, uncomment/add the `cluster_cidr` option in your cluster configuration file and provide a valid CIDR notated network to use. The provided network must not be a subnet of your private network.
+
+**Changing the Service-CIDR (Service IP-Range):**
+
+To change the Service-CIDR, uncomment/add the `service_cidr` option in your cluster configuration file and provide a valid CIDR notated network to use. The provided network must not be a subnet of your private network.
+
+Also uncomment the `cluster_dns` option and provide a single IP-Address from your `service_cidr` range. `cluster_dns` sets the IP-Address of the coredns service.
+
+**Sizing the Networks**
+
+The networks you provide should provide enough space for the expected amount of pods/services. By default `/16` networks are used. Please make sure you chose an adequate size, as changing the CIDR afterwards is not supported.
 
 
 
@@ -436,11 +495,7 @@ If the tool hangs forever after creating servers and you see timeouts, this may 
 
 Please create a PR if you want to propose any changes, or open an issue if you are having trouble with the tool - I will do my best to help if I can.
 
-Contributors:
-
-- [TitanFighter](https://github.com/TitanFighter) for [this awesome tutorial](https://github.com/vitobotta/hetzner-k3s/blob/main/wiki/Setting%20up%20a%20cluster.md)
-
-
+If you would like to financially support the project, consider [becoming a sponsor](https://github.com/sponsors/vitobotta).
 
 ___
 ## License
